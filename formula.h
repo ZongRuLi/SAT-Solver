@@ -1,0 +1,84 @@
+#ifndef  __FORMULA_H__
+#define __FORMULA_H__
+#include<iostream>
+#include<utility>
+#include<vector>
+using namespace std;
+
+enum Status{sat,unsat,unknown,done};
+
+struct Node{
+	Node(){};
+	Node(int x,int v,int lev,int c)
+	{
+		literal = x;polarity = v;level = lev;
+		antecedent = c;
+	}
+
+	Node(int x,int v,int lev)
+	{
+		literal = x;polarity = v;level = lev;
+		antecedent = -1;
+	}
+
+        int literal;
+        int polarity;                           // 1-true 0-false
+        int level;
+        int antecedent;                 // it is a clause
+};
+
+class Formula{
+public:
+        vector<int> literals;			// -1:false 0:unknown 1:true
+	Status status;
+	static vector<vector<int> > clauses;
+	vector<int> clauseStatus;
+	int resolveNum;
+	static vector<Formula> formulaStack;	
+	static int currentLevel;
+	int preAssign;
+
+        // for conflict graph
+        int level;
+        static vector<Node> conflictGraph;             // it is a stack
+	static vector<int> conflictClause;
+
+        // for 2-lit watching
+        static vector<pair<int,int> > watchingList;    	// record two watch lit 
+                                                	// for each clauses
+        static vector<vector<int> > posWatched;
+        static vector<vector<int> > negWatched;
+
+        // for decision making
+        vector<double> counterList;             // record freq of literals
+        static vector<double> VSIDS;                   // will update counter when 
+                                                // conflict occur
+	vector<int> literalsPolar;		// record which polar of lit
+						// occur more freq
+
+	int backtrackingTime;
+
+	//function
+	Formula();
+	Formula(const vector<vector<int> >&);
+	Formula(const Formula &);	
+
+	void setOriginClauses(const vector<vector<int> >&);
+
+	void init();
+	
+	int BCP(int);				// for unit propagation
+	int assign(int,int);
+	void firstUIP();			// return conflict clause
+
+	int updateWatchingList(int,int);	// which clause & one to replace
+
+	void showResult();
+	void showClauses();
+	void showInfo();
+
+	int checkSat();
+
+	void conflictResolve(int);	
+};
+#endif
