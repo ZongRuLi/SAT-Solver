@@ -35,7 +35,12 @@ Formula::Formula(const Formula &f)
 	this->preAssign=0;
 }
 
-void Formula::init()
+Formula::~Formula()
+{
+	
+}
+
+int Formula::init()
 {
 	status = unknown;
 	this->currentLevel = 0;
@@ -82,7 +87,7 @@ void Formula::init()
 		if(clauses[i].size() != 1)
 		{
 			int x = clauses[i][0],y = clauses[i][1];
-			watchingList.push_back(pair<int,int>(abs(x),abs(y)));
+			watchingList.push_back(pair<int,int>(x,y));
 			
 			if(x>0)
 				posWatched[x].push_back(i);
@@ -103,6 +108,18 @@ void Formula::init()
 				negWatched[abs(x)].push_back(i);
 		}
 	}
+
+	//check for unit clauses
+/*	for(int i=0;i<clauses.size();i++)
+	{
+		if(clauses[i].size() > 1)
+			continue;
+		int result = BCP(i);
+		if(result == unsat)
+			return unsat;
+	}
+*/
+	return unknown;
 }
 
 void Formula::conflictResolve(int conflicting)
@@ -113,16 +130,17 @@ void Formula::conflictResolve(int conflicting)
 
 int Formula::BCP(int c)
 {
-	cout<<" BCP clause "<<c<<" ";
-	int result = unknown;
+//	cout<<" BCP clause "<<c<<" ";
+	int result = unknown,n=0,value=0,x=0;
 	for(int i=0;i<clauses[c].size();i++)
 	{
 		int j = clauses[c][i];
 		if(literals[abs(j)] == 0)
 		{
-			int value = abs(j)/j,x = abs(j);
-			conflictGraph.push_back(Node(x,value,this->level,c));
-			result = assign(x,value);
+			x = j;
+			value = abs(x)/x;
+	//		conflictGraph.push_back(Node(abs(x),value,this->level,c));
+			result = assign(abs(x),value);
 		}
 	}
 	return result;
@@ -130,8 +148,11 @@ int Formula::BCP(int c)
 
 int Formula::updateWatchingList(int c,int x)
 {
+	if(clauses[c].size() == 1)
+		return unsat;
+
 	int otherWatcher=0;
-	if(x == watchingList[c].first)
+	if(x == abs(watchingList[c].first))
 		otherWatcher = watchingList[c].second;
 	else
 		otherWatcher = watchingList[c].first;
@@ -140,7 +161,7 @@ int Formula::updateWatchingList(int c,int x)
 	for(int i=0;i<clauses[c].size();i++)
 	{
 		int j = clauses[c][i];
-		if(literals[abs(j)]*j >= 0 && abs(j)!=otherWatcher && abs(j)!=x)
+		if(literals[abs(j)]*j >= 0 && j!=otherWatcher && abs(j)!=x)
 			l = j;
 	}
 
@@ -153,29 +174,21 @@ int Formula::updateWatchingList(int c,int x)
 			negWatched[abs(l)].push_back(c);
 
 		watchingList[c].first = otherWatcher;
-		watchingList[c].second = abs(l);
+		watchingList[c].second = l;
 		
 //		cout<<"Change "<<x<<" to "<<l<<" on "<<c<<endl;	
 		
 		return -100;
 	}	
 
-	if(literals[otherWatcher] == 0)
+	if(literals[abs(otherWatcher)] == 0)
 	{
 		// do BCP
 		return BCP(c);
 		
 	}
 
-	int k;
-	for(int i=0;i<clauses[c].size();i++)
-		if(otherWatcher == abs(clauses[c][i]))
-		{
-			k = clauses[c][i];
-			break;
-		}
-
-	if(literals[otherWatcher] == k/abs(k))
+	if(literals[abs(otherWatcher)] == otherWatcher/abs(otherWatcher))
 	{
 		//resolve
 		return unknown;
@@ -183,6 +196,7 @@ int Formula::updateWatchingList(int c,int x)
 	else
 	{
 		//conflict
+//		cout << " !!conflict!! in "<<c<<" ";
 		return unsat;
 	}
 }
@@ -191,8 +205,6 @@ int Formula::assign(int x,int value) 	//-1:false
 {					// 0:unknown
 	literals[x] = value;		// 1:true`
 
-	// update conflict graph
-//	conflictGraph.push_back(Node(x,value,currentLevel));
 	counterList[x] = -1;		// will never show up
 
 	int result = unknown;
@@ -208,7 +220,10 @@ int Formula::assign(int x,int value) 	//-1:false
 				i--;
 			}
 			if(result == unsat)
-				return unsat;				
+			{
+				literals[x] = 0;
+				return unsat;	
+			}			
 		}
 	}
 	else if(value < 0)
@@ -222,7 +237,10 @@ int Formula::assign(int x,int value) 	//-1:false
 				i--;
 			}
 			if(result == unsat)
+			{
+				literals[x] = 0;
 				return unsat;
+			}
 		}
 	}
 //	showInfo();
@@ -236,29 +254,20 @@ int Formula::checkSat()
 	{
 		int resolve = 0;
 		
-		for(int j=0;j<clauses[i].size();j++)
-		{
-			int k = clauses[i][j];
-			if(literals[abs(k)] == k/abs(k))
-			{
-				resolve = 1;
-				break;
-			}
-			else if(literals[abs(k)] ==0)
-				resolve =2;
+		int lit1 = watchingList[i].first;
+		int lit2 = watchingList[i].second;
 
-		}
+		if(lit1*literals[abs(lit1)]>0)
+			resolve = 1;
+		if(lit2*literals[abs(lit2)]>0)
+			resolve = 1;
 
 		if(resolve == 0)
-			return unsat;
-		if(resolve == 1)
-			n++;
+			return unknown;
 	}
-	if(n==clauses.size())
-		return sat;
-	return unknown;
+	return sat;
 }
-
+	
 void Formula::firstUIP()
 {
 }

@@ -2,6 +2,7 @@
 #include "parser.h"
 #include<vector>
 #include "formula.h"
+#include<stdlib.h>
 using namespace std;
 
 int DPLL(Formula &);
@@ -9,14 +10,21 @@ int recurseTime=0;
 
 int main(int arg,char* argv[])
 {
+	srand(time(NULL));
+
 	vector<vector<int> > clauses;
 	int maxVarIndex;
 	parse_DIMACS_CNF(clauses, maxVarIndex, argv[1]);
 
 	Formula formula(clauses);
-	formula.init();
-
-	formula.showInfo();
+	int r = formula.init();
+	if(r == unsat){
+		cout<<endl<<"UNSAT"<<endl;
+		return 0;
+	}
+//	formula.showInfo();
+//	cin>>r;	
+//	formula.showInfo();
 //	formula.assign(1,1);
 
 //	formula.showInfo();
@@ -32,6 +40,8 @@ int main(int arg,char* argv[])
 
 int maxy(vector<double>);
 
+bool showDetail = false;
+
 int DPLL(Formula &f) 			// -1:false 0:unknown 1:true
 {
 	Formula::currentLevel++;
@@ -45,48 +55,44 @@ int DPLL(Formula &f) 			// -1:false 0:unknown 1:true
 	{
 		f.showResult();	
 		Formula::currentLevel--;
-		cout<<"1"<<endl;
+		if(showDetail)cout<<"1"<<endl;
 		return sat;
-	}
-	else if(result == unsat)
-	{
-//		cout<<"hallo"<<endl;
-//		f.showInfo();
-		Formula::currentLevel--;
-		cout<<"level: "<<newf.level<<" 2"<<endl;
-		return unsat;
 	}
 
 	int x = maxy(newf.counterList);
+	if(recurseTime == 1)
+		x = (((int)(rand()*1200)+5)%newf.literals.size());
+
 	int value = 0;
 	if(newf.literalsPolar[x] >= 0)
 		value = 1;
 	else
 		value = -1;
 
-	cout<<"level: "<<newf.level<<" x="<<x<<" v = "<<value<<" ";	
+	if(showDetail)cout<<"level: "<<newf.level<<" x="<<x<<" v = "<<value<<" ";	
 
-	Formula::conflictGraph.push_back(Node(x,value,newf.level));
+//	Formula::conflictGraph.push_back(Node(x,value,newf.level));
 	result = newf.assign(x,value);
-	cout<<endl;
+	if(showDetail)cout<<endl;
 
 	if(result == unsat)
 	{
-		cout<<"level: "<<newf.level<<" x="<<x<<" v = "<<-1*value<<" ";
+		if(showDetail)cout<<"level: "<<newf.level<<" x="<<x<<" v = "<<-1*value<<" ";
 		result = newf.assign(x,-1*value);
-		cout<<endl;
+		if(showDetail)cout<<endl;
 		
 		if(result == unsat)
 		{
 			Formula::currentLevel--;
-			cout<<"level: "<<newf.level<<" 3"<<endl;
+//			f.~Formula();
+			if(showDetail)cout<<"level: "<<newf.level<<" 3"<<endl;
 			return unsat;
 		}
 		else
 		{
 			result = DPLL(newf);
 			Formula::currentLevel--;
-			cout<<"level: "<<newf.level<<" 4"<<endl;
+			if(showDetail)cout<<"level: "<<newf.level<<" 4"<<endl;
 			return result;
 		}
 	}
@@ -94,30 +100,30 @@ int DPLL(Formula &f) 			// -1:false 0:unknown 1:true
 	if(DPLL(newf)==sat)
 	{
 		Formula::currentLevel--;
-		cout<<"5"<<endl;
+		if(showDetail)cout<<"5"<<endl;
 		return sat;
 	}
 	else if(Formula::currentLevel != newf.level )
 	{
-		cout<<"level: "<<newf.level<<" v"<<Formula::currentLevel<<endl;
+//		cout<<"level: "<<newf.level<<" v"<<Formula::currentLevel<<endl;
 		return unsat;
 	}
 	else 
 	{
-		cout<<"level: "<<newf.level<<" x="<<x<<" v = "<<value<<" ";
+		if(showDetail)cout<<"level: "<<newf.level<<" x="<<x<<" v = "<<value<<" ";
 		result = newf.assign(x,-1*value);
-		cout<<endl;
+		if(showDetail)cout<<endl;
 
 		if(result == unsat)
 		{
 			Formula::currentLevel--;
-			cout<<"level: "<<newf.level<<" 5.5"<<endl;
+//			cout<<"level: "<<newf.level<<" 5.5"<<endl;
 			return unsat;
 		}
 
 		result =  DPLL(newf);
 		Formula::currentLevel--;
-		cout<<"level: "<<newf.level<<" 6"<<endl;
+//		cout<<"level: "<<newf.level<<" 6"<<endl;
 		return result;
 	}
 }

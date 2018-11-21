@@ -63,9 +63,11 @@ public:
 	Formula(const vector<vector<int> >&);
 	Formula(const Formula &);	
 
+	~Formula();
+
 	void setOriginClauses(const vector<vector<int> >&);
 
-	void init();
+	int init();
 	
 	int BCP(int);				// for unit propagation
 	int assign(int,int);
