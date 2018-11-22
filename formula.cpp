@@ -1,10 +1,12 @@
 #include "formula.h"
+#include<stdio.h>
 #include<iostream>
 #include<cmath>
 #include<vector>
 using namespace std;
 
 int Formula::currentLevel = 0;
+int Formula::initSize=0;
 vector<vector<int> > Formula::posWatched;
 vector<vector<int> > Formula::negWatched;
 vector<vector<int> > Formula::clauses;
@@ -16,6 +18,31 @@ vector<int> Formula::conflictClause;
 
 int Formula::targetLevel = -1;
 
+void Formula::zero()
+{
+	while(clauses.size()>initSize)
+		clauses.pop_back();
+
+	for(int i=0;i<literals.size();i++)
+	{
+		for(int j=0;j<posWatched[i].size();j++)
+		{
+			if(posWatched[i][j]>=clauses.size())
+			{
+				posWatched[i].erase(posWatched[i].begin()+j);
+				j--;
+			}
+		}
+		for(int j=0;j<negWatched[i].size();j++)
+			if(negWatched[i][j]>=clauses.size())
+			{
+				negWatched[i].erase(negWatched[i].begin()+j);
+				j--;
+			}
+	}
+	conflictGraph.clear();
+}
+
 Formula::Formula()
 {
 }
@@ -25,16 +52,18 @@ Formula::Formula(const vector<vector<int> >& c)
 	this->clauses = c;
 }
 
-Formula::Formula(const Formula &f)
+Formula::Formula(const Formula *f)
 {
-	this->literals.assign(f.literals.begin(),f.literals.end());
+	this->literals.assign(f->literals.begin(),f->literals.end());
 
-	this->level = Formula::currentLevel;
+	this->level = f->level;
 //	this->conflictGraph = f.conflictGraph;
-	this->counterList.assign(f.counterList.begin(),f.counterList.end());
-	this->literalsPolar.assign(f.literalsPolar.begin(),f.literalsPolar.end());
+	this->counterList.assign(f->counterList.begin(),f->counterList.end());
+	this->literalsPolar.assign(f->literalsPolar.begin(),f->literalsPolar.end());
 //	this->resolveNum = f.resolveNum
 	this->preAssign=0;
+	this->curDec=f->curDec;
+	this->curValue=f->curValue;
 }
 
 Formula::~Formula()
@@ -44,6 +73,8 @@ Formula::~Formula()
 
 int Formula::init()
 {
+	initSize = clauses.size();
+
 	status = unknown;
 	this->currentLevel = 0;
 	level = 0;
@@ -104,10 +135,7 @@ int Formula::init()
 		{
 			int x = clauses[i][0];
 			watchingList.push_back(pair<int,int>(0,x));
-			if(x>0)
-				posWatched[x].push_back(i);
-			else if(x<0)
-				negWatched[abs(x)].push_back(i);
+		
 		}
 	}
 
@@ -120,6 +148,7 @@ int Formula::init()
 		if(result == unsat)
 			return unsat;
 	}
+	conflictGraph.clear();
 
 	return unknown;
 }
@@ -160,32 +189,18 @@ void showClause(vector<int> c)
 	cout<<endl;
 }
 
-void Formula::conflictResolve(int conflicting)
+int Formula::conflictResolve(int conflicting)
 {
-	if(clauses[conflicting].size()==1)
+	showInfo();
+//	if(this->level==8)
 	{
-//		cout<<"It is a unit clause."<<endl;
-		conflictGraph.pop_back();
-		clauses.push_back(clauses[conflicting]);
-		
-		int k = clauses[conflicting][0];
-		if(k>0)
-			posWatched[k].push_back(clauses.size()-1);
-		else
-			negWatched[abs(k)].push_back(clauses.size()-1);
-		watchingList.push_back(pair<int,int>(k,0));
-		return;
+		for(int j=0;j<conflictGraph.size();j++)
+		{
+			Node n = conflictGraph[j];
+			printf("x%02d=%2d@%02d ",n.literal,n.value,n.level);
+		}
+		cout<<endl;
 	}
-//	cout<<"conflict resolve at level "<<currentLevel<<endl;
-	cout<<endl;
-	for(int i=0;i<conflictGraph.size();i++)
-        {
-                cout<<"x"<<conflictGraph[i].literal;
-                cout<<"="<<conflictGraph[i].value;
-                cout<<"@"<<conflictGraph[i].level;
-                cout<<" ";
-        }
-	cout<<endl;
 
 	//First UIP
 	vector<int> clause;
@@ -194,73 +209,43 @@ void Formula::conflictResolve(int conflicting)
         int x=-1;//cout<<"FirstUIP"<<endl;
         while(checkUIP(clause,&x))
         {	
-		showClause(clause);
-		cout<<"+"<<endl;
-		showClause(clauses[conflictGraph[x].antecedent]);
-
+//`		if(this->level==12)
+		{
+			showClause(clause);
+			cout<<"+";
+			showClause(clauses[conflictGraph[x].antecedent]);
+		}
                 clause = resolve(clause,clauses[conflictGraph[x].antecedent],conflictGraph[x].literal);
 		conflictGraph.erase(conflictGraph.begin()+x);
                 int x=-1;
         }
 
 //		cout<<"Done FirstUIP"<<endl;
-        int max = 0;
-        while(conflictGraph.size()>0)
-        {
-                if(conflictGraph.back().level < this->level)
-                        break;
+	conflictClause = clause;
+	cout<<"conflict clause:"<<endl;
+	showClause(conflictClause);
 
-                conflictGraph.pop_back();
-        }
-
-		currentLevel = -1;
-        for(int j=0;j<clause.size();j++)
-        {
-                for(int i=conflictGraph.size()-1;i>=0;i--)
-                {
-                        if(abs(clause[j]) == conflictGraph[i].literal)
-                        {
-                                if(currentLevel < conflictGraph[i].level)
-                                	currentLevel = conflictGraph[i].level;
-                        }
-                }  
-        }
-
-        while(conflictGraph.size()>0)
-        {
-		if(conflictGraph.back().level <= currentLevel)
-			break;
-                
-		int d = conflictGraph.back().literal;
-		literals[d] = 0;
-		
-                conflictGraph.pop_back();
-        }
-        conflictClause = clause;
-        
-        for(int i=0;i<clause.size();i++)
-        	cout<<clause[i]<<": "<<literals[abs(clause[i])]<<" ";
-        cout<<endl;
-        cout<<endl<<"ConflictGraph:"<<endl;
-	for(int i=0;i<conflictGraph.size();i++)
-	{
-		cout<<"x"<<conflictGraph[i].literal;
-		cout<<"="<<conflictGraph[i].value;
-		cout<<"@"<<conflictGraph[i].level;
-		cout<<" ";
-	}
-	clauses.push_back(clause);
-	watchingList.push_back(pair<int,int>(clause[0],clause[1]));
+	
+	int maxLevel=-1;
 	for(int i=0;i<clause.size();i++)
 	{
-		int z = clause[i];
-		if(z>0)
-			posWatched[z].push_back(clauses.size()-1);
-		else
-			negWatched[abs(z)].push_back(clauses.size()-1);
-	}
-	cout<<endl<<"conflict done!!  new clause num: "<<clauses.size()-1<<endl;
-	cout<<"Return to level: "<<currentLevel<<endl;
+		int k=abs(clause[i]);
+		for(int j=conflictGraph.size()-1;j>=0;j--)
+		{
+			if(k==conflictGraph[j].literal && conflictGraph[j].level!=this->level)
+			{
+				if(this->level == 12)
+					cout<<"k "<<k<<"@"<<conflictGraph[j].level<<" ";
+
+				if(maxLevel < conflictGraph[j].level)
+					maxLevel = conflictGraph[j].level;
+			}
+		}
+	}	
+	if(maxLevel==-1 && clause.size() == 1)
+		maxLevel=0;
+	cout<<"this level is "<<this->level<<endl;
+	return maxLevel; 
 }
 
 bool Formula::checkUIP(vector<int> c,int *x)
@@ -275,8 +260,8 @@ bool Formula::checkUIP(vector<int> c,int *x)
 			
                         if(conflictGraph[j].level!=this->level)
                                 break;
-                        if(conflictGraph[j].antecedent<0)
-                                continue;
+                        //if(conflictGraph[j].antecedent<0)
+                          //      continue;
                         if(k == (int)conflictGraph[j].literal)
                         {
                                 n++;
@@ -300,8 +285,28 @@ bool Formula::checkUIP(vector<int> c,int *x)
 
 int Formula::BCP(int c)
 {
-	cout<<" BCP clause "<<c<<" in "<<this->level<<" ";
+//	cout<<" BCP clause "<<c<<" in "<<this->level<<" ";
+
+//	showClause(clauses[c]);
+//        for(int i=0;i<clauses[c].size();i++)
+//        	cout<<literals[abs(clauses[c][i])]<<" ";
+//	cout<<endl;
+
 	int result = unknown,n=0,value=0,x=0;
+	for(int i=0;i<clauses[c].size();i++)
+	{
+		int j = clauses[c][i];
+		if(literals[abs(j)] == 0)
+			n++;
+	}
+	if(n>=2)
+	{
+		cout<<"Something got wrong"<<endl;
+		int c;cin>>c;
+	}
+	if(n==0)
+		return unknown;
+	
 	for(int i=0;i<clauses[c].size();i++)
 	{
 		int j = clauses[c][i];
@@ -311,9 +316,10 @@ int Formula::BCP(int c)
 			value = abs(x)/x;
 			conflictGraph.push_back(Node(abs(x),value,this->level,c));
 			result = assign(abs(x),value);
-			break;
+			n++;
 		}
 	}
+	
 	return result;
 }
 
@@ -359,7 +365,7 @@ int Formula::updateWatchingList(int c,int x)
 	if(literals[abs(otherWatcher)] == otherWatcher/abs(otherWatcher))
 	{
 		//resolve
-		return unknown;
+		return checkSat();
 	}
 	else
 	{
@@ -372,7 +378,7 @@ int Formula::updateWatchingList(int c,int x)
 
 		cout<<"Watcher: "<<x<<","<<otherWatcher<<endl;
 
-		this->conflictResolve(c);
+		conflicting = c;
 		return unsat;
 	}
 }
@@ -399,7 +405,7 @@ int Formula::assign(int x,int value) 	//-1:false
 				return unknown;
 			if(result == unsat)
 			{
-				literals[x] = 0;
+		//		literals[x] = 0;
 				return unsat;	
 			}			
 		}
@@ -418,7 +424,7 @@ int Formula::assign(int x,int value) 	//-1:false
 				return unknown;
 			if(result == unsat)
 			{
-				literals[x] = 0;
+//				literals[x] = 0;
 				return unsat;
 			}
 		}
@@ -434,15 +440,16 @@ int Formula::checkSat()
 	{
 		int resolve = 0;
 		
-		int lit1 = watchingList[i].first;
-		int lit2 = watchingList[i].second;
-
-		if(lit1*literals[abs(lit1)]>0)
-			resolve = 1;
-		if(lit2*literals[abs(lit2)]>0)
-			resolve = 1;
-
-		if(resolve == 0)
+		for(int j=0;j<clauses[i].size();j++)
+		{
+			int k=clauses[i][j];
+			if(k*literals[abs(k)]>0)
+			{
+				resolve=1;
+				break;
+			}
+		}
+		if(resolve!=1)
 			return unknown;
 	}
 	return sat;

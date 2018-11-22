@@ -29,6 +29,7 @@ struct Node{
 
 class Formula{
 public:
+	static int initSize;
         vector<int> literals;			// -1:false 0:unknown 1:true
 	Status status;
 	static vector<vector<int> > clauses;
@@ -37,9 +38,13 @@ public:
 	static vector<Formula> formulaStack;	
 	static int currentLevel;
 	int preAssign;
+	int curDec;
+	int curValue;
+	void setDecision(int x,int v){curDec=x;curValue=v;}
 
         // for conflict graph
         int level;
+	int conflicting;
         static vector<Node> conflictGraph;             // it is a stack
 	static vector<int> conflictClause;
 
@@ -62,7 +67,7 @@ public:
 	//function
 	Formula();
 	Formula(const vector<vector<int> >&);
-	Formula(const Formula &);	
+	Formula(const Formula *);	
 
 	~Formula();
 
@@ -83,6 +88,8 @@ public:
 	int checkSat();
 	bool checkUIP(vector<int>,int*);
 
-	void conflictResolve(int);	
+	void zero();
+
+	int conflictResolve(int);	
 };
 #endif
