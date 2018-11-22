@@ -27,7 +27,7 @@ int main(int arg,char* argv[])
 //	formula.showInfo();
 //	formula.assign(1,1);
 
-//	formula.showInfo();
+	formula.showClauses();
 
 	int result = DPLL(formula);
 	if(result == unsat)
@@ -40,7 +40,7 @@ int main(int arg,char* argv[])
 
 int maxy(vector<double>);
 
-bool showDetail = false;
+bool showDetail = true;
 
 int DPLL(Formula &f) 			// -1:false 0:unknown 1:true
 {
@@ -71,30 +71,27 @@ int DPLL(Formula &f) 			// -1:false 0:unknown 1:true
 
 	if(showDetail)cout<<"level: "<<newf.level<<" x="<<x<<" v = "<<value<<" ";	
 
-//	Formula::conflictGraph.push_back(Node(x,value,newf.level));
+	Formula::conflictGraph.push_back(Node(x,value,newf.level));
 	result = newf.assign(x,value);
 	if(showDetail)cout<<endl;
 
 	if(result == unsat)
 	{
-		if(showDetail)cout<<"level: "<<newf.level<<" x="<<x<<" v = "<<-1*value<<" ";
-		result = newf.assign(x,-1*value);
-		if(showDetail)cout<<endl;
-		
-		if(result == unsat)
+//		cin>>result;
+		while(Formula::currentLevel == newf.level)
 		{
-			Formula::currentLevel--;
-//			f.~Formula();
-			if(showDetail)cout<<"level: "<<newf.level<<" 3"<<endl;
-			return unsat;
-		}
-		else
-		{
+			if(showDetail)cout<<"level: "<<newf.level<<" 3 ";
+			result = newf.BCP(Formula::clauses.size()-1);
+			if(showDetail)cout<<endl;
+			if(result == unsat)
+				return unsat;
+			else if(result == sat)
+				return sat;
 			result = DPLL(newf);
-			Formula::currentLevel--;
-			if(showDetail)cout<<"level: "<<newf.level<<" 4"<<endl;
-			return result;
+			if(result == sat)
+				return sat;
 		}
+		return unsat;
 	}
 
 	if(DPLL(newf)==sat)
@@ -105,26 +102,31 @@ int DPLL(Formula &f) 			// -1:false 0:unknown 1:true
 	}
 	else if(Formula::currentLevel != newf.level )
 	{
-//		cout<<"level: "<<newf.level<<" v"<<Formula::currentLevel<<endl;
+		cout<<"level: "<<newf.level<<" v"<<Formula::currentLevel<<endl;
 		return unsat;
 	}
 	else 
-	{
-		if(showDetail)cout<<"level: "<<newf.level<<" x="<<x<<" v = "<<value<<" ";
-		result = newf.assign(x,-1*value);
-		if(showDetail)cout<<endl;
-
-		if(result == unsat)
+	{	
+		while(Formula::currentLevel == newf.level)
 		{
-			Formula::currentLevel--;
-//			cout<<"level: "<<newf.level<<" 5.5"<<endl;
-			return unsat;
-		}
+			vector<int> c = Formula::clauses.back();
+			for(int i=0;i<c.size();i++)
+				cout<<c[i]<<": "<<newf.literals[abs(c[i])]<<" ";
+			cout<<endl;
 
-		result =  DPLL(newf);
-		Formula::currentLevel--;
-//		cout<<"level: "<<newf.level<<" 6"<<endl;
-		return result;
+			if(showDetail)
+				cout<<"level: "<<newf.level<<" 6 ";
+			int result = newf.BCP(Formula::clauses.size()-1);
+			if(showDetail)cout<<endl;
+			if(result == sat)
+				return sat;
+			else if(result == unsat)
+				return unsat;
+			result = DPLL(newf);
+			if(result == sat)
+				return sat;
+		}
+		return unsat;
 	}
 }
 

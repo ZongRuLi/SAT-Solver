@@ -81,7 +81,7 @@ public:
 	void showInfo();
 
 	int checkSat();
-	bool checkUIP(vector<int>,int*);
+	bool checkUIP(vector<int>);
 
 	void conflictResolve(int);	
 };
