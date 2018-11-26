@@ -18,6 +18,8 @@ vector<int> Formula::conflictClause;
 
 int Formula::targetLevel = -1;
 
+void showClause(vector<int>);
+
 void Formula::zero()
 {
 	while(clauses.size()>initSize)
@@ -110,7 +112,17 @@ int Formula::init()
 			if(clauses[i][j]<0)
 				literalsPolar[k]--;
 			else
-				literalsPolar[k]++;			
+				literalsPolar[k]++;
+			
+			for(int l=j-1;l>=0;l--)
+			{
+				if(clauses[i][j] == clauses[i][l])
+				{
+					clauses[i].erase(clauses[i].begin()+l);
+					j--;
+					break;
+				}
+			}
 		}
 	}
 
@@ -191,7 +203,7 @@ void showClause(vector<int> c)
 
 int Formula::conflictResolve(int conflicting)
 {
-	showInfo();
+//	showInfo();
 //	if(this->level==8)
 	{
 		for(int j=0;j<conflictGraph.size();j++)
@@ -232,7 +244,12 @@ int Formula::conflictResolve(int conflicting)
 		int k=abs(clause[i]);
 		for(int j=conflictGraph.size()-1;j>=0;j--)
 		{
-			if(k==conflictGraph[j].literal && conflictGraph[j].level!=this->level)
+			if(conflictGraph[j].level == this->level && k == conflictGraph[j].literal)
+			{
+				this->conflictx = conflictGraph[j].literal;
+				this->conflictv = conflictGraph[j].value*-1;
+			}
+			else if(k==conflictGraph[j].literal)
 			{
 				if(this->level == 12)
 					cout<<"k "<<k<<"@"<<conflictGraph[j].level<<" ";
@@ -246,6 +263,54 @@ int Formula::conflictResolve(int conflicting)
 		maxLevel=0;
 	cout<<"this level is "<<this->level<<endl;
 	return maxLevel; 
+}
+
+void Formula::addClause(vector<int> c)
+{
+	clauses.push_back(c);
+	int l = clauses.size();
+
+	int k=0;
+	for(int i=0;i<c.size();i++)
+	{
+		int m = c[i];
+		if(m>0)
+		{
+			int k=0;
+			for(int j=0;j<posWatched[m].size();j++)
+			{
+				if(l-1 == posWatched[m][j])
+				{
+					k=1;
+					break;
+				}
+			}
+			if(k == 0)
+				posWatched[m].push_back(l-1);
+		}
+		else if(m<0)
+		{
+			m = abs(m);
+			int k=0;
+			for(int j=0;j<negWatched[m].size();j++)
+			{
+				if(l-1 == negWatched[m][j])
+				{
+					k=1;
+					break;
+				}
+			}
+			if(k == 0)
+				negWatched[m].push_back(l-1);
+		}
+	}
+	int p=conflictClause[0],q;
+	if(conflictClause.size() > 1)
+		q = conflictClause[1];
+	else	
+		q = 0;
+
+	watchingList.push_back(pair<int,int>(p,q));
 }
 
 bool Formula::checkUIP(vector<int> c,int *x)
@@ -285,12 +350,11 @@ bool Formula::checkUIP(vector<int> c,int *x)
 
 int Formula::BCP(int c)
 {
-//	cout<<" BCP clause "<<c<<" in "<<this->level<<" ";
-
-//	showClause(clauses[c]);
-//        for(int i=0;i<clauses[c].size();i++)
-//        	cout<<literals[abs(clauses[c][i])]<<" ";
-//	cout<<endl;
+	cout<<" BCP clause "<<c<<" in "<<this->level<<" ";
+	showClause(clauses[c]);
+        for(int i=0;i<clauses[c].size();i++)
+        	cout<<literals[abs(clauses[c][i])]<<" ";
+	cout<<endl;
 
 	int result = unknown,n=0,value=0,x=0;
 	for(int i=0;i<clauses[c].size();i++)
@@ -303,6 +367,7 @@ int Formula::BCP(int c)
 	{
 		cout<<"Something got wrong"<<endl;
 		int c;cin>>c;
+		
 	}
 	if(n==0)
 		return unknown;
@@ -407,7 +472,9 @@ int Formula::assign(int x,int value) 	//-1:false
 			{
 		//		literals[x] = 0;
 				return unsat;	
-			}			
+			}
+			if(result == sat)
+				return sat;			
 		}
 	}
 	else if(value < 0)
@@ -427,6 +494,8 @@ int Formula::assign(int x,int value) 	//-1:false
 //				literals[x] = 0;
 				return unsat;
 			}
+			if(result == sat)
+				return sat;
 		}
 	}
 //	showInfo();

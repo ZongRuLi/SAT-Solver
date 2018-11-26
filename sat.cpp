@@ -42,14 +42,14 @@ int maxy(vector<double>);
 void showStack(vector<Formula>);
 
 bool showDetail = true;
-
+int flag = 0;
 int DPLL(Formula &f) 			// -1:false 0:unknown 1:true
 {
 	f.zero();	
 	vector<Formula> fv;
 	fv.push_back(new Formula(f));
 	fv.back().level=Formula::currentLevel=1;
-	int blevel=-1,x=0,value=0;
+	int blevel=-1,x=0,value=0,antedent = -1;
 	while(true)
 	{
 		//decide next branch
@@ -67,46 +67,18 @@ int DPLL(Formula &f) 			// -1:false 0:unknown 1:true
 			Formula *newf=new Formula(fv.back());	
 			newf->level = Formula::currentLevel;
 
-			Formula::conflictGraph.push_back(Node(x,value,newf->level));
-			for(int i = newf->conflictGraph.size()-2;i>=0;i--)
-			{
-				if(newf->conflictGraph[i].literal == x)
-				{
-					newf->conflictGraph.pop_back();	
-					break;
-				}
-				if(newf->conflictGraph[i].level < newf->level)
-					break;
-			}
-	
+			Formula::conflictGraph.push_back(Node(x,value,newf->level,antedent));
+			antedent = -1;				
+
 			newf->curDec = x;newf->curValue=value;
 			//cout<<newf->curDec<<",,"<<newf->curValue;
-//			cout<<"//level: "<<newf->level<<" x"<<newf->curDec<<" = "<<value;
+			cout<<"//level: "<<newf->level<<" x"<<newf->curDec<<" = "<<value;
 			int result = newf->assign(x,value);
-
-			if(blevel != -1 && result != unsat)
-			{
-				result = newf->BCP(newf->clauses.size()-1);
-				blevel=-1;
-			}
-			cout<<endl;
 
 			if(result == unsat)
 			{
 				blevel = newf->conflictResolve(newf->conflicting);
 				cout<<"Return to level "<<blevel<<endl;
-				Formula::clauses.push_back(newf->conflictClause);
-				int l = Formula::clauses.size();
-				for(int i=0;i<Formula::conflictClause.size();i++)
-				{		
-					int k = Formula::conflictClause[i];
-					if(k>0)
-						newf->posWatched[k].push_back(l-1);
-					else
-						newf->negWatched[abs(k)].push_back(l-1);
-				}
-
-				newf->watchingList.push_back(pair<int,int>(newf->clauses[l-1][0],newf->clauses[l-1][1]));
 
 				if(blevel<0)
 				{
@@ -116,38 +88,53 @@ int DPLL(Formula &f) 			// -1:false 0:unknown 1:true
 				else
 				{
 					//backtracking
-					while(fv.back().level != blevel)
+					while(fv.size()>0 && fv.back().level != blevel)
 					{
 						fv.pop_back();
 					}
-					
+					if(Formula::conflictGraph.size()>0)
 					while(Formula::conflictGraph.back().level > blevel)
 						Formula::conflictGraph.pop_back();
+					
+					
+					x = newf->conflictx;
+					value = newf->conflictv;
+					Formula::currentLevel = blevel;
 
-					if(blevel==0)
+					if(newf->conflictClause.size() <= 10 || true)
 					{
-						int c;cin>>c;
-						f.conflictGraph.clear();
-						Formula::currentLevel=1;
-						
-						fv.push_back(new Formula(f));
-						
-						int k=f.clauses.back()[0];
-						x = abs(k);
-						value = k/abs(k);
-					}	
+						newf->addClause(newf->conflictClause);
+						antedent = newf->clauses.size()-1;
+					}
 					else
 					{
+						antedent = -1;
+						Formula::currentLevel++;
+					}				
 
-						x=fv.back().curDec;
-						value=fv.back().curValue;
-						cout<<fv.back().level<<x<<","<<value<<endl;
+					if(blevel == 0)
+					{
+						Formula *nf = new Formula(f);
+						Formula::currentLevel++;
+						nf->level = 1;
 					
-						Formula::currentLevel = blevel;
+						nf->conflictGraph.push_back(Node(x,value,1,antedent));
+						cout<<"//level: "<<nf->level<<" x"<<x<<" = "<<value;
+						cout<<" ";
+						result = nf->assign(x,value);
+						cout<<endl;
+
+						if(result == unsat)
+							return unsat;
+
+						fv.push_back(nf);
+						Formula::currentLevel++;
+						break;
 					}
-				}	
+				}
+			//	int e;cin>>e;	
 			}
-			else if(newf->checkSat())
+			else if(result == sat)
 			{
 				newf->showResult();
 				return sat;

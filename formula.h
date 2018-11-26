@@ -47,6 +47,7 @@ public:
 	int conflicting;
         static vector<Node> conflictGraph;             // it is a stack
 	static vector<int> conflictClause;
+	int conflictx,conflictv;
 
         // for 2-lit watching
         static vector<pair<int,int> > watchingList;    	// record two watch lit 
@@ -86,6 +87,7 @@ public:
 	void showInfo();
 
 	int checkSat();
+	void addClause(vector<int>);
 	bool checkUIP(vector<int>,int*);
 
 	void zero();
