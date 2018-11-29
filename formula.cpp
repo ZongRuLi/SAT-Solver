@@ -1,8 +1,4 @@
-#include "formula.hP clause 4, in level 1 
--1 2 
-1 0 
-Update watchingList from 2 to -3 on 1 clause
-Update watchingLi
+#include "formula.h"
 #include<stdio.h>
 #include<iostream>
 #include<iomanip>
